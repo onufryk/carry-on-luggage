@@ -1,4 +1,5 @@
 import collections
+import json
 import functools
 import re
 
@@ -19,16 +20,16 @@ with open('carryon.csv', 'r') as datafile:
             obj['d2'] = 0
             obj['d3'] = 0
             obj['volume'] = 0
+            frequency['{}'.format(obj['linear'])].append(airline_name)
         else:
             d1, d2, d3 = [float(token.strip()) for token in luggage_size.strip().split('x')]
             obj['d1'] = d1
             obj['d2'] = d2
             obj['d3'] = d3
-
-            frequency['{}:{}:{}'.format(d1, d2, d3)].append(airline_name)
-
             obj['linear'] = d1 + d2 + d3
             obj['volume'] = d1 * d2 * d3
+            frequency['{}:{}:{}'.format(d1, d2, d3)].append(airline_name)
+            frequency['{:4.1f}'.format(obj['linear'])].append(airline_name)
 
         luggage_requirements.append(obj)
 
@@ -50,19 +51,11 @@ for i in range(len(luggage_requirements)):
                                                                                luggage_requirements[i]['d2'],
                                                                                luggage_requirements[i]['d3'])])
     else:
-        luggage_requirements[i]['frequency'] = 0
+        luggage_requirements[i]['frequency'] = len(frequency['{:4.1f}'.format(luggage_requirements[i]['linear'])])
 
 
 def order_func_linear(item):
     return item['linear']
-
-
-def order_func_volume(item):
-    return item['volume']
-
-
-def order_func_dimensions(item):
-    return item['d1'], item['d2'], item['d3']
 
 
 def order_func_frequency(item):
@@ -86,6 +79,13 @@ def compare_by_dimensions_or_linear(x, y):
     return x['d3'] - y['d3']
 
 
+def compare_by_volume_or_linear(x, y):
+    if x['d1'] == 0 or y['d1'] == 0:
+        return x['linear'] - y['linear']
+
+    return x['volume'] - y['volume']
+
+
 def output(title, requirements):
     print()
     print('{:-^100}'.format(' {} '.format(title)))
@@ -104,8 +104,9 @@ def output(title, requirements):
                 requirement['will_fit'],
                 requirement['airline_name']))
         else:
-            print('                   | {:4.1f} |        |      | {:4} | {}'.format(
+            print('                   | {:4.1f} |        | {:4} | {:4} | {}'.format(
                 requirement['linear'],
+                requirement['frequency'],
                 requirement['will_fit'],
                 requirement['airline_name']))
     # print('-------------------|------|------|------|------|------------------------------------')
@@ -121,7 +122,7 @@ output('By linear size',
        sorted(luggage_requirements, key=order_func_linear, reverse=True))
 
 output('By volume',
-       sorted(luggage_requirements, key=order_func_volume, reverse=True))
+       sorted(luggage_requirements, key=functools.cmp_to_key(compare_by_volume_or_linear), reverse=True))
 
 output('By frequency of use',
        sorted(luggage_requirements, key=order_func_frequency, reverse=True))
